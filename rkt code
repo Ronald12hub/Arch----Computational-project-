@@ -1,0 +1,349 @@
+(require 2htdp/image)
+
+
+;; DATA DEFINITIONS
+
+;; 1. ROOM
+
+
+;;  A Room is a
+;; (make-room String Number Number Number String String String)
+;;
+;; name = room name
+;; length = room length in feet
+;; width = room width in feet
+;; height = room height in feet
+;; floor-type = material of floor
+;; wall-material = material of walls
+;; ceiling-material = material of ceiling
+
+(define-struct room
+  (name length width height floor-type wall-material ceiling-material))
+
+;; Examples of Rooms
+
+(define classroom
+  (make-room "Classroom" 8 9 9 "tiles" "painted concrete" "tiles"))
+
+(define library
+  (make-room "Library" 10 8 9 "carpet" "wood panel" "tiles"))
+
+(define restroom
+  (make-room "Restroom" 4 4 7 "tiles" "painted concrete" "plaster"))
+
+(define computer-lab
+  (make-room "Computer Lab" 18 16 8 "carpet" "painted wall" "softboard")) 
+
+(define storage-room
+  (make-room "Storage Room" 6 5 8 "tiles" "plaster" "tiles"))
+
+
+;; 2. -- FLOOR
+
+
+;; A Floor is one of:
+;; - (cons Room '())
+;; - (cons Room Floor)
+
+(define FL1
+  (list classroom)) 
+
+(define FL2
+  (list computer-lab library restroom))
+
+(define FL3
+  (list storage-room classroom restroom))  
+
+
+;; 3. --- BUILDING
+
+
+;; A Building is one of:
+;; - (cons Floor '())
+;; - (cons Floor Building)
+
+(define B1
+  (list FL1))
+
+(define B2
+  (list FL1 FL2))
+
+(define B3
+  (list FL1 FL2 FL3))
+
+
+;; 3. -- MATERIAL COSTS (per square foot)
+
+;;useful constants.
+
+(define TILE-COST 3) ; $3
+(define CARPET-COST 5) ; $5
+(define WOOD-PANEL-COST 7) ;$7
+(define PAINTED-CONCRETE-COST 4) ; $4
+(define PLASTER-COST 6) ; $6
+(define PAINTED-WALL-COST 4) ;$4
+(define SOFTBOARD-COST 5) ; $5
+
+
+
+;; 4. computations
+
+;; room-floor-area : Room -> Number
+;; Computes floor area of a room
+
+(define (room-floor-area r)
+  (* (room-length r)
+     (room-width r)))
+
+(check-expect
+ (room-floor-area classroom)
+ 72)  ;(make-room "Classroom" 8 9 9 "tiles" "painted concrete" "tiles")
+
+
+(check-expect
+ (room-floor-area computer-lab)
+ 288) 
+
+;; ceiling-area : Room -> Number
+;; Ceiling area equals floor area
+
+(define (ceiling-area r)
+  (room-floor-area r))
+
+(check-expect
+ (ceiling-area restroom)
+ 16)
+
+;; wall-area : Room -> Number
+;; Computes total wall area
+
+(define (wall-area r)
+  (+ (* 2 (room-length r) (room-height r))
+     (* 2 (room-width r) (room-height r)))) 
+
+(check-expect
+ (wall-area classroom)
+ 306)
+
+(check-expect
+ (wall-area restroom)
+ (+ (* 2 4 7)
+    (* 2 4 7)))
+
+;; ----- prices
+
+;; floor-material-cost : Room -> Number
+;; Cost per square foot of floor material
+
+(define (floor-material-cost r)
+  (cond
+    [(string=? (room-floor-type r) "tiles")
+     TILE-COST]
+    [(string=? (room-floor-type r) "carpet")
+     CARPET-COST]
+    [else 2]))   
+
+(check-expect
+ (floor-material-cost classroom) 3)
+
+(check-expect
+ (floor-material-cost library) 5)
+
+;; wall-material-cost : Room -> Number
+
+(define (wall-material-cost r)
+  (cond
+    [(string=? (room-wall-material r) "painted concrete")
+     PAINTED-CONCRETE-COST]
+
+    [(string=? (room-wall-material r) "wood panel")
+     WOOD-PANEL-COST]
+
+    [(string=? (room-wall-material r) "plaster")
+     PLASTER-COST]
+
+    [(string=? (room-wall-material r) "painted wall")
+     PAINTED-WALL-COST]
+
+    [else 3]))
+
+
+;Tests
+
+(check-expect  (wall-material-cost classroom) 4)
+(check-expect (wall-material-cost library) 7)
+
+ 
+;; ceiling-material-cost : Room -> Number
+
+(define (ceiling-material-cost r)
+  (cond
+    [(string=? (room-ceiling-material r) "tiles")
+     TILE-COST]
+
+    [(string=? (room-ceiling-material r) "plaster")
+     PLASTER-COST]
+
+    [(string=? (room-ceiling-material r) "softboard")
+     SOFTBOARD-COST]
+
+    [else 2]))
+
+(check-expect (ceiling-material-cost restroom) 6)
+
+(check-expect (ceiling-material-cost classroom) 3)
+
+
+;;--- Total costs for all rooms
+
+;; floor-cost : Room -> Number
+
+(define (floor-cost r)
+  (* (room-floor-area r)
+     (floor-material-cost r))) 
+
+(check-expect
+ (floor-cost classroom) (* 72 3)) 
+ 
+
+;; ceiling-cost : Room -> Number
+
+(define (ceiling-cost r)
+  (* (ceiling-area r)
+     (ceiling-material-cost r)))
+
+(check-expect
+ (ceiling-cost classroom) (* 72 3)) 
+ 
+
+;; wall-cost : Room -> Number
+
+(define (wall-cost r)
+  (* (wall-area r)
+     (wall-material-cost r)))
+
+(check-expect
+ (wall-cost classroom) (* 306 4))  
+ 
+
+;; room-total-cost : Room -> Number
+
+(define (room-total-cost r)
+  (+ (floor-cost r) (ceiling-cost r) (wall-cost r)))
+     
+      
+(check-expect (room-total-cost restroom)
+              (+ (floor-cost restroom)
+                 (ceiling-cost restroom)
+                 (wall-cost restroom))) 
+
+
+;; 6. Computing for the entire floor (list of rooms)-- Recursions appears here
+
+;; total-floor-area : Floor -> Number
+
+(define (total-floor-area floor)
+  (cond
+    [(empty? (rest floor)) (room-floor-area (first floor))]
+    [else
+     (+ (room-floor-area (first floor))
+        (total-floor-area (rest floor)))])) 
+
+(check-expect
+ (total-floor-area FL1) 72)  
+
+(check-expect
+ (total-floor-area FL2) (+ 288 80 16))
+
+
+;; total-floor-cost : Floor -> Number
+
+(define (total-floor-cost floor)
+  (cond
+    [(empty? (rest floor)) (room-total-cost (first floor))]
+    [else
+     (+ (room-total-cost (first floor))
+        (total-floor-cost (rest floor)))]))
+
+
+;check-expects
+(check-expect (total-floor-cost FL1) (room-total-cost classroom))
+ 
+(check-expect
+ (total-floor-cost FL2)
+ (+ (room-total-cost computer-lab) (room-total-cost library) (room-total-cost restroom))) 
+    
+
+ 
+
+
+; 7. Computing for the entire building.--- Recursion also appears here
+
+;; total-building-area : Building -> Number
+
+(define (total-building-area building)
+  (cond
+    [(empty? (rest building)) (total-floor-area (first building))]
+    [else
+     (+ (total-floor-area (first building))
+        (total-building-area (rest building)))]))   
+         
+(check-expect
+ (total-building-area B1)  72) 
+
+
+(check-expect
+ (total-building-area B2)  (+ 72 384)) 
+
+
+;; total-building-cost : Building -> Number
+
+(define (total-building-cost building)
+  (cond
+    [(empty? (rest building)) (total-floor-cost (first building))]
+    [else
+     (+ (total-floor-cost (first building))
+        (total-building-cost  (rest building)))])) 
+        
+
+(check-expect
+ (total-building-cost B1) (total-floor-cost FL1)) 
+ 
+                    
+;; Sorting Rooms by sizes
+
+;; large-rooms : Floor Number -> Floor   ; Where Number is our Threshold (Target size) 
+;; Returns rooms larger than min-area
+
+
+(define (large-rooms floor threshold)
+  (cond
+     [(empty? (rest floor))
+     (if (> (room-floor-area (first floor)) threshold)
+         (list (first floor))
+         '())] 
+
+    [(> (room-floor-area (first floor))  threshold)
+     (cons (first floor) (large-rooms (rest floor)  threshold))]
+    
+    [else  (large-rooms (rest floor) threshold)])) 
+
+
+;; tests
+
+(check-expect (large-rooms FL2 100)  (list computer-lab))
+(check-expect  (large-rooms FL1 100)  '()) 
+
+          
+              
+      
+    
+           
+            
+           
+
+
+
+
+
+
